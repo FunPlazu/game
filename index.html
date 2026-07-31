@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Лесной кошмар</title>
+    <style>
+        /* --- Стили (улучшенные) --- */
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        canvas { display: block; }
+
+        #menuOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #c0b8a0;
+            z-index: 10;
+            backdrop-filter: blur(6px);
+            transition: opacity 0.5s;
+        }
+        #menuOverlay.hidden { opacity: 0; pointer-events: none; }
+        #menuOverlay h1 {
+            font-size: 4.5em;
+            text-shadow: 0 0 40px #8a2b2b, 0 0 80px #4a1a1a;
+            letter-spacing: 10px;
+            margin-bottom: 5px;
+            color: #e8ddc0;
+        }
+        #menuOverlay .version {
+            font-size: 0.8em;
+            color: #7a6a5a;
+            margin-top: -10px;
+            margin-bottom: 20px;
+        }
+        #menuOverlay p.sub {
+            font-size: 1.2em;
+            color: #a09070;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #3a2e1e;
+            padding-bottom: 15px;
+        }
+        .menu-btn {
+            background: #2a1e12;
+            border: 2px solid #6a5a3a;
+            color: #d4c8a0;
+            padding: 14px 45px;
+            margin: 8px;
+            font-size: 1.3em;
+            cursor: pointer;
+            border-radius: 40px;
+            transition: all 0.2s;
+            width: 240px;
+            text-align: center;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        .menu-btn:hover {
+            background: #4a3a22;
+            border-color: #b09050;
+            box-shadow: 0 0 30px #6a4a1a;
+            transform: scale(1.05);
+        }
+        .menu-btn.small { font-size: 0.95em; padding: 10px 30px; width: 200px; }
+        .menu-btn.danger { border-color: #8a3a2a; color: #e0a090; }
+        .menu-btn.danger:hover { background: #5a2a1a; border-color: #cc6644; }
+
+        #settingsPanel {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            background: #1a140e;
+            padding: 30px 50px;
+            border-radius: 20px;
+            border: 1px solid #5a4a30;
+            margin-top: 10px;
+            min-width: 280px;
+        }
+        #settingsPanel label {
+            font-size: 1.1em;
+            margin: 8px 0;
+            color: #b0a080;
+            width: 100%;
+        }
+        #settingsPanel input[type="range"] {
+            width: 100%;
+            background: #3a2e1e;
+            accent-color: #b09050;
+        }
+        #settingsPanel .save-load-row {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        #controlsPanel {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            background: #1a140e;
+            padding: 20px 40px;
+            border-radius: 20px;
+            border: 1px solid #5a4a30;
+            margin-top: 10px;
+            color: #c0b8a0;
+        }
+        #controlsPanel h3 { margin: 5px 0; color: #e0d5b0; }
+        #controlsPanel ul { list-style: none; padding: 0; text-align: left; }
+        #controlsPanel ul li { margin: 6px 0; font-size: 1.1em; }
+        #controlsPanel ul li kbd {
+            background: #2a1e12;
+            border: 1px solid #6a5a3a;
+            padding: 2px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        #hud {
+            position: fixed;
+            top: 20px; left: 20px;
+            color: #d0c8b0;
+            font-size: 1.3em;
+            text-shadow: 0 0 20px black;
+            background: rgba(0,0,0,0.5);
+            padding: 12px 24px;
+            border-radius: 12px;
+            border-left: 4px solid #b09050;
+            z-index: 5;
+            pointer-events: none;
+            font-family: monospace;
+            letter-spacing: 1px;
+            min-width: 200px;
+        }
+        #hud .stat { display: flex; justify-content: space-between; }
+        #hud .stat span { color: #f0e080; font-weight: bold; }
+        #hud .monster-status {
+            font-size: 0.8em;
+            color: #ff6a4a;
+            margin-top: 4px;
+            transition: color 0.2s;
+        }
+        #hud .monster-status.aggro { color: #ff2a0a; text-shadow: 0 0 20px #ff0000; }
+
+        #itemCounter {
+            position: fixed;
+            top: 80px; right: 30px;
+            color: #e0d5b0;
+            font-size: 1.8em;
+            text-shadow: 0 0 20px black;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 12px;
+            border-right: 4px solid #b09050;
+            z-index: 5;
+            pointer-events: none;
+            font-family: monospace;
+        }
+        #itemCounter .count { color: #f0e080; font-weight: bold; }
+
+        #whistleCooldown {
+            position: fixed;
+            bottom: 100px; left: 50%;
+            transform: translateX(-50%);
+            color: #ffcc88;
+            font-size: 1.2em;
+            background: rgba(0,0,0,0.6);
+            padding: 6px 18px;
+            border-radius: 20px;
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #whistleCooldown.show { opacity: 1; }
+
+        #controlsHint {
+            position: fixed;
+            bottom: 30px; left: 50%;
+            transform: translateX(-50%);
+            color: #a09070;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-size: 0.9em;
+            border: 1px solid #3a2e1e;
+            z-index: 5;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        #loading {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #0a0806;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #b09050;
+            font-size: 2.5em;
+            z-index: 100;
+            transition: opacity 0.8s;
+            letter-spacing: 4px;
+            font-weight: 300;
+            text-shadow: 0 0 20px #6a4a1a;
+        }
+        #loading.hidden { opacity: 0; pointer-events: none; }
+        #loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #3a2e1e;
+            border-top: 4px solid #b09050;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #loading .text { display: flex; align-items: center; }
+    </style>
+</head>
+<body>
+
+    <!-- Загрузка -->
+    <div id="loading">
+        <div class="text">
+            <div class="spinner"></div>
+            <span>Загрузка игры…</span>
+        </div>
+    </div>
+
+    <!-- Меню -->
+    <div id="menuOverlay">
+        <h1>🌲 ЛЕСНОЙ КОШМАР</h1>
+        <div class="version">v2.0 — Детализированная версия</div>
+        <p class="sub">Найди 15 предметов, пока монстр не нашёл тебя</p>
+        <div id="mainButtons">
+            <div class="menu-btn" id="newGameBtn">▶ Новая игра</div>
+            <div class="menu-btn" id="continueBtn">📂 Продолжить</div>
+            <div class="menu-btn small" id="settingsBtn">⚙ Настройки</div>
+            <div class="menu-btn small" id="controlsBtn">🎮 Управление</div>
+            <div class="menu-btn small danger" id="exitBtn">✕ Выход</div>
+        </div>
+        <div id="settingsPanel">
+            <label>Чувствительность мыши: <span id="sensVal">0.8</span></label>
+            <input type="range" id="sensitivity" min="0.2" max="2.0" step="0.05" value="0.8">
+            <label>Громкость (звуки): <span id="volVal">0.6</span></label>
+            <input type="range" id="volume" min="0" max="1.0" step="0.05" value="0.6">
+            <div class="save-load-row">
+                <div class="menu-btn small" id="saveGameBtn">💾 Сохранить</div>
+                <div class="menu-btn small" id="loadGameBtn">📂 Загрузить</div>
+            </div>
+            <div class="menu-btn small" id="backMenuBtn" style="margin-top:20px;">← Назад</div>
+        </div>
+        <div id="controlsPanel">
+            <h3>Клавиши управления</h3>
+            <ul>
+                <li><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> — движение</li>
+                <li><kbd>Мышь</kbd> — осмотр</li>
+                <li><kbd>F</kbd> — свистнуть (отвлечь монстра)</li>
+                <li><kbd>Пробел</kbd> — включить/выключить фонарик</li>
+                <li><kbd>Shift</kbd> — бег (временно)</li>
+            </ul>
+            <div class="menu-btn small" id="backFromControls">← Назад</div>
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div class="stat">📦 Предметов: <span id="hudCount">0</span> / 15</div>
+        <div class="stat">👹 Уровень шума: <span id="noiseLevel">0</span></div>
+        <div class="monster-status" id="monsterStatus">👹 Монстр: не видит</div>
+    </div>
+    <div id="itemCounter">
+        🎯 <span class="count" id="bigCount">0</span>/15
+    </div>
+    <div id="controlsHint">WASD — движение | Мышь — осмотр | F — свист | Пробел — фонарик</div>
+    <div id="whistleCooldown">⏳ Свисток перезаряжается...</div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.152.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+        // ----- Конфигурация -----
+        const ITEMS_TOTAL = 15;
+        const WHISTLE_COOLDOWN = 8;
+        const MONSTER_SPEED = 2.8;
+        const PLAYER_SPEED = 4.5;
+        const MONSTER_VIEW_RADIUS = 28;
+        const MONSTER_LOSE_RADIUS = 40;
+        const ITEM_PICKUP_RADIUS = 1.8;
+
+        // ----- Состояние игры -----
+        const state = {
+            itemsCollected: 0,
+            collectedIds: new Set(),
+            items: [],
+            monsterTarget: null,
+            whistlePos: null,
+            whistleCooldown: 0,
+            isMonsterAggro: false,
+            monsterLastSeenPlayer: null,
+            gameActive: false,
+            flashlightOn: true,
+            noiseLevel: 0,
+            playerPos: new THREE.Vector3(0, 1.7, 0),
+            playerRot: 0,
+        };
+
+        // ----- Сцена, камера, рендер -----
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a12);
+        scene.fog = new THREE.FogExp2(0x0a0a12, 0.012);
+
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
+        camera.position.set(0, 1.7, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        document.body.prepend(renderer.domElement);
+
+        // Постобработка
+        const composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            0.35, 0.25, 0.1
+        );
+        composer.addPass(bloomPass);
+        const outputPass = new OutputPass();
+        composer.addPass(outputPass);
+
+        // ----- Управление -----
+        const controls = new PointerLockControls(camera, document.body);
+        controls.lockSpeed = 0.002;
+        let isLocked = false;
+        controls.addEventListener('lock', () => { isLocked = true; });
+        controls.addEventListener('unlock', () => { isLocked = false; });
+
+        // ----- Освещение -----
+        const ambientLight = new THREE.AmbientLight(0x1a1a30, 0.4);
+        scene.add(ambientLight);
+
+        const moonLight = new THREE.DirectionalLight(0x445577, 0.9);
+        moonLight.position.set(-20, 30, -10);
+        moonLight.castShadow = true;
+        moonLight.shadow.mapSize.width = 1024;
+        moonLight.shadow.mapSize.height = 1024;
+        const d = 40;
+        moonLight.shadow.camera.left = -d;
+        moonLight.shadow.camera.right = d;
+        moonLight.shadow.camera.top = d;
+        moonLight.shadow.camera.bottom = -d;
+        moonLight.shadow.camera.near = 1;
+        moonLight.shadow.camera.far = 60;
+        scene.add(moonLight);
+
+        const backLight = new THREE.DirectionalLight(0x335577, 0.3);
+        backLight.position.set(10, 5, 20);
+        scene.add(backLight);
+
+        // Фонарик
+        const flashlight = new THREE.SpotLight(0xffeedd, 5);
+        flashlight.angle = 0.4;
+        flashlight.penumbra = 0.5;
+        flashlight.decay = 1.5;
+        flashlight.distance = 50;
+        flashlight.castShadow = true;
+        flashlight.shadow.mapSize.width = 512;
+        flashlight.shadow.mapSize.height = 512;
+        camera.add(flashlight);
+        camera.add(flashlight.target);
+        flashlight.target.position.set(0, 0, -10);
+        scene.add(camera);
+
+        // ----- Детали: трава, камни, кусты -----
+        function createBush(x, z) {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0x2a4a2a, roughness: 0.8 });
+            for (let i = 0; i < 5; i++) {
+                const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.2 + Math.random()*0.3, 5, 4), mat);
+                sphere.position.set((Math.random()-0.5)*0.6, 0.1 + Math.random()*0.2, (Math.random()-0.5)*0.6);
+                sphere.castShadow = true;
+                sphere.receiveShadow = true;
+                group.add(sphere);
+            }
+            group.position.set(x, 0, z);
+            group.rotation.y = Math.random() * Math.PI * 2;
+            return group;
+        }
+
+        function createRock(x, z) {
+            const rock = new THREE.Mesh(
+                new THREE.DodecahedronGeometry(0.2 + Math.random()*0.3, 0),
+                new THREE.MeshStandardMaterial({ color: 0x6a6a7a, roughness: 0.9, metalness: 0.1 })
+            );
+            rock.position.set(x, 0.05, z);
+            rock.rotation.set(Math.random(), Math.random(), Math.random());
+            rock.castShadow = true;
+            rock.receiveShadow = true;
+            return rock;
+        }
+
+        // Генерация леса + деталей
+        const treePositions = [];
+        for (let i = 0; i < 300; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 8 + Math.random() * 65;
+            const x = Math.cos(angle) * dist;
+            const z = Math.sin(angle) * dist;
+            if (Math.abs(x) < 5 && Math.abs(z) < 5) continue;
+
+            // Дерево
+            const group = new THREE.Group();
+            const trunkH = 1.5 + Math.random() * 2.5;
+            const trunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.2 + Math.random()*0.15, 0.3 + Math.random()*0.2, trunkH, 6),
+                new THREE.MeshStandardMaterial({ color: 0x3d2b1a, roughness: 0.9 })
+            );
+            trunk.position.y = trunkH/2;
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            group.add(trunk);
+
+            const crownR = 1.0 + Math.random() * 1.2;
+            const crown = new THREE.Mesh(
+                new THREE.SphereGeometry(crownR, 7, 6),
+                new THREE.MeshStandardMaterial({ color: 0x1a3a1a, roughness: 0.7, emissive: new THREE.Color(0x0a1a0a), emissiveIntensity: 0.1 })
+            );
+            crown.position.y = trunkH + crownR * 0.6;
+            crown.castShadow = true;
+            crown.receiveShadow = true;
+            group.add(crown);
+
+            group.rotation.y = Math.random() * Math.PI * 2;
+            group.position.set(x, 0, z);
+            scene.add(group);
+
+            // Кусты и камни рядом с деревьями (редко)
+            if (Math.random() < 0.2) {
+                const bush = createBush(x + (Math.random()-0.5)*1.5, z + (Math.random()-0.5)*1.5);
+                scene.add(bush);
+            }
+            if (Math.random() < 0.15) {
+                const rock = createRock(x + (Math.random()-0.5)*2, z + (Math.random()-0.5)*2);
+                scene.add(rock);
+            }
+        }
+
+        // ----- Палатка (обновлена) -----
+        function createTent() {
+            const group = new THREE.Group();
+            const base = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.8, 2.2, 0.2, 8),
+                new THREE.MeshStandardMaterial({ color: 0x4a3a2a, roughness: 0.8 })
+            );
+            base.position.y = 0.1;
+            base.receiveShadow = true;
+            base.castShadow = true;
+            group.add(base);
+
+            const fabric = new THREE.Mesh(
+                new THREE.ConeGeometry(2.0, 1.8, 6),
+                new THREE.MeshStandardMaterial({ color: 0x6a5a3a, roughness: 0.9, emissive: new THREE.Color(0x2a1a0a), emissiveIntensity: 0.2 })
+            );
+            fabric.position.y = 1.0;
+            fabric.castShadow = true;
+            fabric.receiveShadow = true;
+            group.add(fabric);
+
+            const entrance = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.8, 1.2),
+                new THREE.MeshStandardMaterial({ color: 0x0a0a08, emissive: new THREE.Color(0x1a0a04), emissiveIntensity: 0.3, side: THREE.DoubleSide })
+            );
+            entrance.position.set(0, 0.6, 1.75);
+            group.add(entrance);
+
+            // Костер с анимированным огнём (свет)
+            const fireLight = new THREE.PointLight(0xff5500, 0.6, 5);
+            fireLight.position.set(2.2, 0.6, 1.5);
+            group.add(fireLight);
+            const fireGlow = new THREE.Mesh(
+                new THREE.SphereGeometry(0.4, 6, 6),
+                new THREE.MeshStandardMaterial({ color: 0xff4400, emissive: new THREE.Color(0xff3300), emissiveIntensity: 1.2 })
+            );
+            fireGlow.position.set(2.2, 0.4, 1.5);
+            group.add(fireGlow);
+            const coals = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.6, 0.8, 0.1, 8),
+                new THREE.MeshStandardMaterial({ color: 0x331100, emissive: new THREE.Color(0x441100), emissiveIntensity: 0.3 })
+            );
+            coals.position.set(2.2, 0.05, 1.5);
+            group.add(coals);
+
+            group.position.set(0, 0, 0);
+            return group;
+        }
+        scene.add(createTent());
+
+        // ----- Светлячки (частицы) -----
+        const fireflyCount = 80;
+        const fireflyGeo = new THREE.BufferGeometry();
+        const fireflyPos = new Float32Array(fireflyCount * 3);
+        const fireflySpeed = new Float32Array(fireflyCount);
+        for (let i = 0; i < fireflyCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 5 + Math.random() * 35;
+            fireflyPos[i*3] = Math.cos(angle) * dist;
+            fireflyPos[i*3+1] = 0.5 + Math.random() * 1.5;
+            fireflyPos[i*3+2] = Math.sin(angle) * dist;
+            fireflySpeed[i] = 0.2 + Math.random() * 0.5;
+        }
+        fireflyGeo.setAttribute('position', new THREE.BufferAttribute(fireflyPos, 3));
+        const fireflyMat = new THREE.PointsMaterial({
+            color: 0xffdd88,
+            size: 0.08,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const fireflies = new THREE.Points(fireflyGeo, fireflyMat);
+        scene.add(fireflies);
+
+        // ----- Предметы (улучшены) -----
+        const itemColors = [0xff4444, 0x44ff44, 0x4444ff, 0xffff44, 0xff44ff, 0x44ffff, 0xff8800, 0x88ff00, 0x0088ff, 0xff0088, 0x8800ff, 0x00ff88, 0xaa88ff, 0xffaa88, 0x88ffaa];
+        const itemNames = ['Ключ', 'Фляга', 'Карта', 'Компас', 'Аптечка', 'Нож', 'Фонарик (старый)', 'Батарейка', 'Записка', 'Кристалл', 'Кольцо', 'Фигурка', 'Свеча', 'Осколок', 'Амулет'];
+
+        function createItem(index) {
+            const type = Math.floor(Math.random() * 4);
+            let geo;
+            if (type === 0) geo = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+            else if (type === 1) geo = new THREE.SphereGeometry(0.28, 8, 6);
+            else if (type === 2) geo = new THREE.CylinderGeometry(0.2, 0.2, 0.5, 6);
+            else geo = new THREE.TorusGeometry(0.25, 0.08, 6, 8);
+            const mat = new THREE.MeshStandardMaterial({
+                color: itemColors[index % itemColors.length],
+                emissive: new THREE.Color(0x442200),
+                emissiveIntensity: 0.2,
+                roughness: 0.3,
+                metalness: 0.4
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            let pos;
+            let attempts = 0;
+            do {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 6 + Math.random() * 38;
+                pos = new THREE.Vector3(Math.cos(angle) * dist, 0.4, Math.sin(angle) * dist);
+                attempts++;
+            } while (attempts < 50 && (pos.length() < 4 || pos.length() > 45));
+            mesh.position.copy(pos);
+            mesh.rotation.set(Math.random()*0.5, Math.random()*Math.PI*2, Math.random()*0.5);
+            // свечение
+            const glow = new THREE.PointLight(0xffaa44, 0.2, 4);
+            glow.position.copy(pos);
+            glow.position.y = 0.6;
+            scene.add(glow);
+            mesh.userData = { id: index, name: itemNames[index % itemNames.length], collected: false, glow: glow };
+            return mesh;
+        }
+
+        const itemMeshes = [];
+        for (let i = 0; i < ITEMS_TOTAL; i++) {
+            const mesh = createItem(i);
+            scene.add(mesh);
+            itemMeshes.push(mesh);
+            state.items.push(mesh);
+        }
+
+        // ----- Монстр (детализированный) -----
+        function createMonster() {
+            const group = new THREE.Group();
+            // Тело
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a1a1a, roughness: 0.8, emissive: new THREE.Color(0x1a0a0a), emissiveIntensity: 0.2 });
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 1.8, 6), bodyMat);
+            body.position.y = 0.9;
+            body.castShadow = true;
+            body.receiveShadow = true;
+            group.add(body);
+
+            // Голова
+            const headMat = new THREE.MeshStandardMaterial({ color: 0x3a2a2a, roughness: 0.7, emissive: new THREE.Color(0x2a0a0a), emissiveIntensity: 0.3 });
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), headMat);
+            head.position.y = 1.9;
+            head.castShadow = true;
+            head.receiveShadow = true;
+            group.add(head);
+
+            // Глаза
+            const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff2200, emissive: new THREE.Color(0xff0000), emissiveIntensity: 0.8 });
+            const eye1 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), eyeMat);
+            eye1.position.set(-0.2, 2.0, 0.5);
+            group.add(eye1);
+            const eye2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), eyeMat);
+            eye2.position.set(0.2, 2.0, 0.5);
+            group.add(eye2);
+
+            // Руки (анимируемые)
+            const armMat = new THREE.MeshStandardMaterial({ color: 0x2a1a1a, roughness: 0.9 });
+            const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1.0, 4), armMat);
+            armL.position.set(-0.7, 1.2, 0);
+            armL.rotation.z = 0.3;
+            armL.castShadow = true;
+            group.add(armL);
+            const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1.0, 4), armMat);
+            armR.position.set(0.7, 1.2, 0);
+            armR.rotation.z = -0.3;
+            armR.castShadow = true;
+            group.add(armR);
+
+            // Ноги
+            const legMat = new THREE.MeshStandardMaterial({ color: 0x1a0a0a, roughness: 0.9 });
+            const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.6, 4), legMat);
+            legL.position.set(-0.25, 0.3, 0);
+            legL.castShadow = true;
+            group.add(legL);
+            const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.6, 4), legMat);
+            legR.position.set(0.25, 0.3, 0);
+            legR.castShadow = true;
+            group.add(legR);
+
+            group.position.set(12, 0, 8);
+            // сохраним ссылки для анимации
+            group.userData = { armL, armR, legL, legR, head };
+            return group;
+        }
+        const monster = createMonster();
+        scene.add(monster);
+        let monsterState = 'idle';
+
+        // ----- Звуковая система (улучшена) -----
+        let audioCtx = null;
+        let masterGain = 1.0;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = parseFloat(document.getElementById('volume').value) || 0.6;
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                gain.gain.value = masterGain * 0.3;
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+                switch(type) {
+                    case 'whistle':
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(2000, now);
+                        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
+                        gain.gain.setValueAtTime(0.3 * masterGain, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                        osc.start(now);
+                        osc.stop(now + 0.3);
+                        break;
+                    case 'pickup':
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(600, now);
+                        osc.frequency.exponentialRampToValueAtTime(1000, now + 0.1);
+                        gain.gain.setValueAtTime(0.15 * masterGain, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                        osc.start(now);
+                        osc.stop(now + 0.15);
+                        break;
+                    case 'monster_roar':
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(80, now);
+                        osc.frequency.exponentialRampToValueAtTime(40, now + 0.5);
+                        gain.gain.setValueAtTime(0.2 * masterGain, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                        osc.start(now);
+                        osc.stop(now + 0.6);
+                        break;
+                    case 'footstep':
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(120, now);
+                        osc.frequency.exponentialRampToValueAtTime(80, now + 0.05);
+                        gain.gain.setValueAtTime(0.05 * masterGain, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+                        osc.start(now);
+                        osc.stop(now + 0.06);
+                        break;
+                    default: break;
+                }
+            } catch(e) {}
+        }
+
+        // ----- Сохранение/загрузка -----
+        function saveGame() {
+            const data = {
+                playerPos: camera.position.toArray(),
+                playerRot: camera.rotation.y,
+                itemsCollected: state.itemsCollected,
+                collectedIds: Array.from(state.collectedIds),
+                monsterPos: monster.position.toArray(),
+                monsterState: monsterState,
+                monsterTarget: state.monsterTarget,
+                whistleCooldown: state.whistleCooldown,
+                flashlightOn: state.flashlightOn,
+            };
+            localStorage.setItem('horrorSave', JSON.stringify(data));
+            alert('Игра сохранена!');
+        }
+
+        function loadGame() {
+            const raw = localStorage.getItem('horrorSave');
+            if (!raw) { alert('Нет сохранения.'); return false; }
+            try {
+                const data = JSON.parse(raw);
+                camera.position.fromArray(data.playerPos);
+                camera.rotation.y = data.playerRot || 0;
+                state.itemsCollected = data.itemsCollected || 0;
+                state.collectedIds = new Set(data.collectedIds || []);
+                state.items.forEach(mesh => {
+                    const id = mesh.userData.id;
+                    const collected = state.collectedIds.has(id);
+                    mesh.visible = !collected;
+                    if (mesh.userData.glow) mesh.userData.glow.visible = !collected;
+                });
+                monster.position.fromArray(data.monsterPos || [12,0,8]);
+                monsterState = data.monsterState || 'idle';
+                state.monsterTarget = data.monsterTarget || null;
+                state.whistleCooldown = data.whistleCooldown || 0;
+                state.flashlightOn = data.flashlightOn !== undefined ? data.flashlightOn : true;
+                flashlight.visible = state.flashlightOn;
+                updateHUD();
+                return true;
+            } catch(e) { alert('Ошибка загрузки.'); return false; }
+        }
+
+        // ----- HUD -----
+        function updateHUD() {
+            document.getElementById('hudCount').textContent = state.itemsCollected;
+            document.getElementById('bigCount').textContent = state.itemsCollected;
+            const status = document.getElementById('monsterStatus');
+            if (state.isMonsterAggro) {
+                status.textContent = '👹 Монстр: видит тебя!';
+                status.className = 'monster-status aggro';
+            } else {
+                status.textContent = '👹 Монстр: не видит';
+                status.className = 'monster-status';
+            }
+            document.getElementById('noiseLevel').textContent = Math.round(state.noiseLevel * 100) / 100;
+        }
+
+        // ----- Игровой цикл -----
+        let clock = new THREE.Clock();
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let sprint = false;
+
+        document.addEventListener('keydown', (e) => {
+            switch(e.code) {
+                case 'KeyW': moveForward = true; break;
+                case 'KeyS': moveBackward = true; break;
+                case 'KeyA': moveLeft = true; break;
+                case 'KeyD': moveRight = true; break;
+                case 'ShiftLeft':
+                case 'ShiftRight': sprint = true; break;
+                case 'KeyF':
+                    if (state.gameActive && state.whistleCooldown <= 0) {
+                        whistle();
+                    }
+                    break;
+                case 'Space':
+                    if (state.gameActive) {
+                        state.flashlightOn = !state.flashlightOn;
+                        flashlight.visible = state.flashlightOn;
+                        e.preventDefault();
+                    }
+                    break;
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            switch(e.code) {
+                case 'KeyW': moveForward = false; break;
+                case 'KeyS': moveBackward = false; break;
+                case 'KeyA': moveLeft = false; break;
+                case 'KeyD': moveRight = false; break;
+                case 'ShiftLeft':
+                case 'ShiftRight': sprint = false; break;
+            }
+        });
+
+        let footstepTimer = 0;
+
+        function whistle() {
+            if (state.whistleCooldown > 0) return;
+            initAudio();
+            playSound('whistle');
+            state.whistleCooldown = WHISTLE_COOLDOWN;
+            state.whistlePos = camera.position.clone().add(new THREE.Vector3(0, 0, -5));
+            state.monsterTarget = 'whistle';
+            state.noiseLevel = 1.0;
+            // Визуальный эффект
+            const ringGeo = new THREE.RingGeometry(0.5, 1.0, 16);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xffaa44, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.copy(state.whistlePos);
+            ring.position.y = 0.2;
+            ring.lookAt(camera.position);
+            scene.add(ring);
+            setTimeout(() => { scene.remove(ring); }, 1000);
+            const el = document.getElementById('whistleCooldown');
+            el.classList.add('show');
+            setTimeout(() => { el.classList.remove('show'); }, WHISTLE_COOLDOWN * 1000);
+        }
+
+        function updateMonster(delta) {
+            if (!state.gameActive) return;
+            const playerPos = camera.position;
+            const monsterPos = monster.position;
+            const distToPlayer = playerPos.distanceTo(monsterPos);
+
+            // Кулдаун
+            if (state.whistleCooldown > 0) {
+                state.whistleCooldown -= delta;
+                if (state.whistleCooldown < 0) state.whistleCooldown = 0;
+            }
+            // Шум затухает
+            state.noiseLevel = Math.max(0, state.noiseLevel - delta * 0.3);
+
+            // Видимость
+            let canSeePlayer = false;
+            if (distToPlayer < MONSTER_VIEW_RADIUS) {
+                const dir = new THREE.Vector3().copy(playerPos).sub(monsterPos).normalize();
+                const raycaster = new THREE.Raycaster(monsterPos, dir, 0, MONSTER_VIEW_RADIUS);
+                const intersects = raycaster.intersectObjects(scene.children, true);
+                let blocked = false;
+                for (let hit of intersects) {
+                    if (hit.distance > distToPlayer) break;
+                    if (hit.object.userData && hit.object.userData.id !== undefined) continue;
+                    if (hit.object.parent && hit.object.parent === monster) continue;
+                    if (hit.object.geometry && (hit.object.geometry.type === 'CylinderGeometry' || hit.object.geometry.type === 'SphereGeometry' || hit.object.geometry.type === 'ConeGeometry')) {
+                        if (hit.object.material.color.getHex() === 0x3d2b1a || hit.object.material.color.getHex() === 0x1a3a1a) {
+                            blocked = true;
+                            break;
+                        }
+                    }
+                }
+                if (!blocked) canSeePlayer = true;
+            }
+
+            // Агро
+            if (canSeePlayer) {
+                state.isMonsterAggro = true;
+                state.monsterTarget = 'player';
+                state.monsterLastSeenPlayer = playerPos.clone();
+                if (Math.random() < 0.01) playSound('monster_roar');
+            } else {
+                if (state.isMonsterAggro && distToPlayer > MONSTER_LOSE_RADIUS) {
+                    state.isMonsterAggro = false;
+                    state.monsterTarget = null;
+                }
+            }
+
+            // Движение
+            let target = null;
+            if (state.monsterTarget === 'player') {
+                if (canSeePlayer) target = playerPos.clone();
+                else if (state.monsterLastSeenPlayer) target = state.monsterLastSeenPlayer.clone();
+            } else if (state.monsterTarget === 'whistle') {
+                if (state.whistlePos) target = state.whistlePos.clone();
+                if (state.whistleCooldown < WHISTLE_COOLDOWN - 2) {
+                    state.monsterTarget = null;
+                }
+            }
+
+            if (target) {
+                const dirToTarget = new THREE.Vector3().copy(target).sub(monsterPos);
+                const distToTarget = dirToTarget.length();
+                if (distToTarget > 0.5) {
+                    const move = dirToTarget.normalize().multiplyScalar(MONSTER_SPEED * delta);
+                    monsterPos.add(move);
+                    const angle = Math.atan2(dirToTarget.x, dirToTarget.z);
+                    monster.rotation.y = angle;
+                    // Анимация ходьбы
+                    const time = clock.elapsedTime * 4;
+                    if (monster.userData.armL) {
+                        monster.userData.armL.rotation.x = Math.sin(time) * 0.3;
+                        monster.userData.armR.rotation.x = Math.sin(time + Math.PI) * 0.3;
+                        monster.userData.legL.rotation.x = Math.sin(time + Math.PI) * 0.2;
+                        monster.userData.legR.rotation.x = Math.sin(time) * 0.2;
+                    }
+                } else {
+                    if (state.monsterTarget === 'whistle') {
+                        state.monsterTarget = null;
+                        state.whistlePos = null;
+                    }
+                }
+                if (state.monsterTarget === 'player' && distToPlayer < 1.5) {
+                    gameOver('Монстр настиг вас!');
+                }
+            } else {
+                // Блуждание
+                if (!state.isMonsterAggro && Math.random() < 0.002) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = 5 + Math.random() * 15;
+                    const newTarget = new THREE.Vector3(
+                        monsterPos.x + Math.cos(angle) * dist,
+                        0,
+                        monsterPos.z + Math.sin(angle) * dist
+                    );
+                    if (newTarget.length() < 60) {
+                        state.monsterTarget = 'wander';
+                        state.whistlePos = newTarget;
+                    }
+                }
+                if (state.monsterTarget === 'wander' && state.whistlePos) {
+                    const dir = new THREE.Vector3().copy(state.whistlePos).sub(monsterPos);
+                    if (dir.length() > 0.5) {
+                        const move = dir.normalize().multiplyScalar(MONSTER_SPEED * 0.4 * delta);
+                        monsterPos.add(move);
+                        monster.rotation.y = Math.atan2(dir.x, dir.z);
+                    } else {
+                        state.monsterTarget = null;
+                        state.whistlePos = null;
+                    }
+                }
+                // Анимация покоя
+                if (monster.userData.armL) {
+                    const time = clock.elapsedTime * 1.5;
+                    monster.userData.armL.rotation.x = Math.sin(time) * 0.05;
+                    monster.userData.armR.rotation.x = Math.sin(time + 0.5) * 0.05;
+                }
+            }
+
+            // Обновление HUD
+            updateHUD();
+        }
+
+        function gameOver(reason) {
+            state.gameActive = false;
+            controls.unlock();
+            document.getElementById('menuOverlay').classList.remove('hidden');
+            document.getElementById('menuOverlay').innerHTML = `
+                <h1>💀 ВЫ УМЕРЛИ</h1>
+                <p class="sub">${reason}</p>
+                <p>Собрано предметов: ${state.itemsCollected} / 15</p>
+                <div class="menu-btn" onclick="location.reload()">↻ Попробовать снова</div>
+                <div class="menu-btn small" id="menuMainBtn">🏠 Главное меню</div>
+            `;
+            document.getElementById('menuMainBtn').addEventListener('click', () => { location.reload(); });
+        }
+
+        function checkPickups() {
+            if (!state.gameActive) return;
+            const playerPos = camera.position;
+            state.items.forEach(mesh => {
+                if (mesh.visible === false) return;
+                const dist = playerPos.distanceTo(mesh.position);
+                if (dist < ITEM_PICKUP_RADIUS) {
+                    const id = mesh.userData.id;
+                    if (!state.collectedIds.has(id)) {
+                        state.collectedIds.add(id);
+                        state.itemsCollected++;
+                        mesh.visible = false;
+                        if (mesh.userData.glow) mesh.userData.glow.visible = false;
+                        playSound('pickup');
+                        state.noiseLevel = Math.min(1, state.noiseLevel + 0.1);
+                        updateHUD();
+                        if (state.itemsCollected >= ITEMS_TOTAL) {
+                            gameOver('Поздравляем! Вы собрали все 15 предметов! Вы победили!');
+                            document.getElementById('menuOverlay').innerHTML = `
+                                <h1>🏆 ВЫ ПОБЕДИЛИ!</h1>
+                                <p class="sub">Вы нашли все 15 предметов и сбежали из леса!</p>
+                                <div class="menu-btn" onclick="location.reload()">↻ Играть снова</div>
+                            `;
+                        }
+                    }
+                }
+            });
+        }
+
+        // ----- Старт игры -----
+        function startGame(resetProgress = false) {
+            if (resetProgress) {
+                localStorage.removeItem('horrorSave');
+                state.itemsCollected = 0;
+                state.collectedIds = new Set();
+                state.items.forEach(mesh => {
+                    mesh.visible = true;
+                    if (mesh.userData.glow) mesh.userData.glow.visible = true;
+                });
+                monster.position.set(12, 0, 8);
+                state.monsterTarget = null;
+                state.whistleCooldown = 0;
+                state.isMonsterAggro = false;
+                state.noiseLevel = 0;
+                camera.position.set(0, 1.7, 0);
+                camera.rotation.y = 0;
+                flashlight.visible = true;
+                state.flashlightOn = true;
+                updateHUD();
+            }
+            document.getElementById('menuOverlay').classList.add('hidden');
+            document.getElementById('loading').classList.add('hidden');
+            controls.lock();
+            state.gameActive = true;
+            updateHUD();
+            flashlight.visible = state.flashlightOn;
+        }
+
+        // ----- Обработчики меню -----
+        document.getElementById('newGameBtn').addEventListener('click', () => {
+            initAudio();
+            startGame(true);
+        });
+
+        document.getElementById('continueBtn').addEventListener('click', () => {
+            initAudio();
+            const loaded = loadGame();
+            if (loaded) {
+                startGame(false);
+            } else {
+                alert('Нет сохранения. Начните новую игру.');
+            }
+        });
+
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            document.getElementById('mainButtons').style.display = 'none';
+            document.getElementById('settingsPanel').style.display = 'flex';
+            document.getElementById('controlsPanel').style.display = 'none';
+        });
+
+        document.getElementById('controlsBtn').addEventListener('click', () => {
+            document.getElementById('mainButtons').style.display = 'none';
+            document.getElementById('controlsPanel').style.display = 'flex';
+            document.getElementById('settingsPanel').style.display = 'none';
+        });
+
+        document.getElementById('backMenuBtn').addEventListener('click', () => {
+            document.getElementById('settingsPanel').style.display = 'none';
+            document.getElementById('mainButtons').style.display = 'flex';
+        });
+
+        document.getElementById('backFromControls').addEventListener('click', () => {
+            document.getElementById('controlsPanel').style.display = 'none';
+            document.getElementById('mainButtons').style.display = 'flex';
+        });
+
+        document.getElementById('exitBtn').addEventListener('click', () => {
+            if (confirm('Вы уверены, что хотите выйти?')) {
+                document.querySelector('body').innerHTML = '<h1 style="color:#a09070; text-align:center; margin-top:20%;">Спасибо за игру!<br><small>Страница будет перезагружена</small></h1>';
+                setTimeout(() => location.reload(), 2000);
+            }
+        });
+
+        document.getElementById('saveGameBtn').addEventListener('click', () => {
+            if (state.gameActive) saveGame();
+            else alert('Игра не активна. Запустите игру сначала.');
+        });
+        document.getElementById('loadGameBtn').addEventListener('click', () => {
+            loadGame();
+            if (state.gameActive) startGame(false);
+        });
+
+        // Настройки
+        const sensSlider = document.getElementById('sensitivity');
+        const sensVal = document.getElementById('sensVal');
+        sensSlider.addEventListener('input', () => {
+            const val = parseFloat(sensSlider.value);
+            sensVal.textContent = val.toFixed(2);
+            controls.lockSpeed = val * 0.002;
+        });
+        const volSlider = document.getElementById('volume');
+        const volVal = document.getElementById('volVal');
+        volSlider.addEventListener('input', () => {
+            const val = parseFloat(volSlider.value);
+            volVal.textContent = val.toFixed(2);
+            masterGain = val;
+        });
+
+        // ----- Анимация -----
+        function animate() {
+            const delta = Math.min(clock.getDelta(), 0.05);
+            if (state.gameActive && isLocked) {
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                const speed = (sprint ? PLAYER_SPEED * 1.5 : PLAYER_SPEED) * delta;
+                let moveVec = new THREE.Vector3(0, 0, 0);
+                let moving = false;
+                if (moveForward) { moveVec.add(forward); moving = true; }
+                if (moveBackward) { moveVec.sub(forward); moving = true; }
+                if (moveLeft) { moveVec.sub(right); moving = true; }
+                if (moveRight) { moveVec.add(right); moving = true; }
+                if (moveVec.length() > 0) {
+                    moveVec.normalize().multiplyScalar(speed);
+                    camera.position.add(moveVec);
+                    const limit = 55;
+                    if (camera.position.length() > limit) {
+                        camera.position.normalize().multiplyScalar(limit);
+                    }
+                    // Шаги
+                    footstepTimer += delta;
+                    if (footstepTimer > 0.5) {
+                        footstepTimer = 0;
+                        playSound('footstep');
+                        state.noiseLevel = Math.min(1, state.noiseLevel + 0.02);
+                    }
+                }
+                flashlight.target.position.set(0, 0, -5);
+                updateMonster(delta);
+                checkPickups();
+
+                // Светлячки
+                const positions = fireflies.geometry.attributes.position.array;
+                for (let i = 0; i < fireflyCount; i++) {
+                    positions[i*3+1] += Math.sin(clock.elapsedTime * fireflySpeed[i] + i) * 0.001;
+                }
+                fireflies.geometry.attributes.position.needsUpdate = true;
+            }
+            composer.render();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // ----- Ресайз -----
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Блокировка
+        renderer.domElement.addEventListener('click', () => {
+            if (state.gameActive && !isLocked) {
+                controls.lock();
+            }
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            if (!document.pointerLockElement && state.gameActive) {
+                document.getElementById('controlsHint').style.opacity = '1';
+            } else {
+                document.getElementById('controlsHint').style.opacity = '0.6';
+            }
+        });
+
+        // Скрываем загрузку
+        document.getElementById('loading').classList.add('hidden');
+
+        console.log('SWILL: Лесной кошмар v2.0 загружен.');
+    </script>
+</body>
+</html>
