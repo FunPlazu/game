@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор аддона для Minecraft Bedrock</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body { font-family: -apple-system, sans-serif; padding: 20px; background: #1e1e1e; color: #eee; text-align: center; }
+        button { font-size: 1.2em; padding: 15px 30px; background: #4caf50; color: white; border: none; border-radius: 10px; margin-top: 20px; }
+        button:active { background: #388e3c; }
+        p { font-size: 0.9em; color: #aaa; }
+    </style>
+</head>
+<body>
+    <h1>Simple Explosive Addon</h1>
+    <p>Нажми кнопку, чтобы собрать и скачать .mcaddon</p>
+    <button id="downloadBtn">Скачать аддон</button>
+    <p id="status"></p>
+
+    <script>
+        function createTexturePNG(color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 16; canvas.height = 16;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, 16, 16);
+            return canvas.toDataURL('image/png').split(',')[1]; // base64
+        }
+
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            const status = document.getElementById('status');
+            status.textContent = 'Сборка...';
+
+            const zip = new JSZip();
+
+            // --- behavior_pack ---
+            const bp = zip.folder('behavior_pack');
+            bp.file('manifest.json', JSON.stringify({
+                format_version: 2,
+                header: {
+                    name: "Simple Explosive Addon",
+                    description: "Добавляет взрывчатку с простым крафтом.",
+                    uuid: crypto.randomUUID(),
+                    version: [1, 0, 0],
+                    min_engine_version: [1, 21, 0]
+                },
+                modules: [{
+                    type: "data",
+                    uuid: crypto.randomUUID(),
+                    version: [1, 0, 0]
+                }]
+            }, null, 2));
+
+            bp.file('blocks/explosive_block.json', JSON.stringify({
+                format_version: "1.21.0",
+                "minecraft:block": {
+                    description: {
+                        identifier: "my_addon:simple_tnt",
+                        menu_category: { category: "items" }
+                    },
+                    components: {
+                        "minecraft:destructible_by_explosion": { explosion_resistance: 0 },
+                        "minecraft:destructible_by_mining": { seconds_to_destroy: 0 },
+                        "minecraft:explode": {
+                            fuse_length: 2.0,
+                            power: 4.0,
+                            causes_fire: false,
+                            breaks_blocks: true
+                        },
+                        "minecraft:geometry": "minecraft:geometry.full_block",
+                        "minecraft:material_instances": {
+                            "*": { texture: "simple_tnt", render_method: "opaque" }
+                        },
+                        "minecraft:light_emission": 0,
+                        "minecraft:map_color": "#FFFFFF"
+                    }
+                }
+            }, null, 2));
+
+            bp.file('recipes/explosive_block_recipe.json', JSON.stringify({
+                format_version: "1.12",
+                "minecraft:recipe_shaped": {
+                    description: { identifier: "my_addon:simple_tnt_recipe" },
+                    tags: ["crafting_table"],
+                    pattern: ["GSG", "SPS", "GSG"],
+                    key: {
+                        G: { item: "minecraft:gunpowder" },
+                        S: { item: "minecraft:sand" },
+                        P: { item: "minecraft:paper" }
+                    },
+                    result: { item: "my_addon:simple_tnt", count: 2 }
+                }
+            }, null, 2));
+
+            bp.file('pack_icon.png', createTexturePNG('#0000ff'), { base64: true });
+
+            // --- resource_pack ---
+            const rp = zip.folder('resource_pack');
+            rp.file('manifest.json', JSON.stringify({
+                format_version: 2,
+                header: {
+                    name: "Simple Explosive Addon Resources",
+                    description: "Ресурсы для аддона.",
+                    uuid: crypto.randomUUID(),
+                    version: [1, 0, 0],
+                    min_engine_version: [1, 21, 0]
+                },
+                modules: [{
+                    type: "resources",
+                    uuid: crypto.randomUUID(),
+                    version: [1, 0, 0]
+                }]
+            }, null, 2));
+
+            rp.file('texts/en_US.lang', 'tile.my_addon:simple_tnt.name=Simple TNT\n');
+            rp.file('textures/blocks/simple_tnt.png', createTexturePNG('#ff0000'), { base64: true });
+            rp.file('pack_icon.png', createTexturePNG('#00ff00'), { base64: true });
+
+            // Генерация zip
+            const blob = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'MyExplosiveAddon.mcaddon';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            status.textContent = 'Готово! Файл скачан.';
+        });
+    </script>
+</body>
+</html>
